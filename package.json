@@ -1,0 +1,21 @@
+{
+  "name": "qkimi-desktop",
+  "productName": "Kimi 2007",
+  "version": "0.1.0",
+  "description": "复古 QQ 风格的 Kimi Code macOS 原生客户端",
+  "private": true,
+  "scripts": {
+    "start": "bash native/build.sh run",
+    "start:native": "bash native/build.sh run",
+    "start:web": "node serve.js",
+    "check": "node --check app.js && node --check bootstrap.js && node --check serve.js && swift build --package-path native -c debug --arch arm64",
+    "test": "bash native/smoke.sh",
+    "package": "bash native/build.sh package",
+    "package:mac": "bash native/build.sh package",
+    "make": "bash native/build.sh make",
+    "make:mac": "bash native/build.sh make"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

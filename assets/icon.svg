@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6db1f8"/>
+      <stop offset="0.45" stop-color="#1670e3"/>
+      <stop offset="1" stop-color="#0b3f9f"/>
+    </linearGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff3a0"/>
+      <stop offset="0.55" stop-color="#ffd95e"/>
+      <stop offset="1" stop-color="#e9a91e"/>
+    </linearGradient>
+    <mask id="crescent">
+      <rect width="1024" height="1024" fill="#000"/>
+      <circle cx="462" cy="540" r="318" fill="#fff"/>
+      <circle cx="608" cy="396" r="306" fill="#000"/>
+    </mask>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="30" stdDeviation="26" flood-color="#06245f" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect x="28" y="28" width="968" height="968" rx="220" fill="url(#sky)"/>
+  <rect x="46" y="46" width="932" height="932" rx="202" fill="none" stroke="#b9dcff" stroke-width="16" opacity="0.62"/>
+  <ellipse cx="350" cy="238" rx="220" ry="120" fill="#fff" opacity="0.12" transform="rotate(-18 350 238)"/>
+  <circle cx="462" cy="540" r="318" fill="url(#moon)" mask="url(#crescent)" filter="url(#shadow)"/>
+  <circle cx="748" cy="246" r="44" fill="#fff9cf"/>
+  <circle cx="824" cy="352" r="25" fill="#fff9cf" opacity="0.92"/>
+  <circle cx="708" cy="148" r="18" fill="#fff" opacity="0.88"/>
+</svg>
