@@ -4,6 +4,18 @@ Kimi 2007 是一个复古 QQ 2007 风格的 Kimi Code macOS 客户端。它使�
 
 当前版本为 `0.1.0`，提供 macOS arm64 构建。客户端连接本机单独安装的 `kimi server`，不包含 Kimi CLI 或模型服务。
 
+## 界面预览
+
+桌面端采用完整三栏布局，集中展示会话列表、Markdown 对话和当前会话的任务活动：
+
+![Kimi 2007 桌面三栏界面](assets/screenshots/kimi-2007-desktop.png)
+
+窗口变窄时自动切换为紧凑布局，左右栏收纳为抽屉，保留完整聊天与输入区域：
+
+<p align="center">
+  <img src="assets/screenshots/kimi-2007-compact.png" alt="Kimi 2007 紧凑界面" width="430">
+</p>
+
 ## 使用前提
 
 - macOS 12 或更高版本。
