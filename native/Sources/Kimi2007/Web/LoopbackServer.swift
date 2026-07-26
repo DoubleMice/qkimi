@@ -5,6 +5,7 @@ final class LoopbackServer {
   enum ServerError: LocalizedError {
     case missingPort
     case failed(String)
+    case invalidStaticManifest(String)
 
     var errorDescription: String? {
       switch self {
@@ -12,20 +13,70 @@ final class LoopbackServer {
         return "本地页面服务未分配端口"
       case .failed(let message):
         return "本地页面服务启动失败：\(message)"
+      case .invalidStaticManifest(let message):
+        return "前端资源清单无效：\(message)"
       }
     }
   }
 
+  private enum BundleKind: String, Decodable {
+    case script
+    case style
+  }
+
+  private enum StaticResource {
+    case file(source: String, contentType: String)
+    case bundle(kind: BundleKind, sources: [String], contentType: String)
+
+    var contentType: String {
+      switch self {
+      case .file(_, let contentType), .bundle(_, _, let contentType):
+        return contentType
+      }
+    }
+  }
+
+  private struct StaticFile: Decodable {
+    let route: String
+    let source: String
+    let contentType: String
+  }
+
+  private struct StaticBundle: Decodable {
+    let route: String
+    let kind: BundleKind
+    let sources: [String]
+    let contentType: String
+  }
+
+  private struct StaticManifest: Decodable {
+    let files: [StaticFile]
+    let bundles: [StaticBundle]
+  }
+
   private let root: URL
+  private let staticResources: [String: StaticResource]
+  private let staticManifestError: Error?
   private let queue = DispatchQueue(label: "com.qkimi.desktop.loopback", qos: .userInitiated)
   private var listener: NWListener?
   private var startCompletion: ((Result<URL, Error>) -> Void)?
 
   init(root: URL) {
     self.root = root
+    do {
+      staticResources = try Self.loadStaticResources(from: root)
+      staticManifestError = nil
+    } catch {
+      staticResources = [:]
+      staticManifestError = error
+    }
   }
 
   func start(completion: @escaping (Result<URL, Error>) -> Void) {
+    if let staticManifestError {
+      completion(.failure(staticManifestError))
+      return
+    }
     do {
       let parameters = NWParameters.tcp
       parameters.acceptLocalOnly = true
@@ -125,7 +176,7 @@ final class LoopbackServer {
       return
     }
     let path = decoded == "/" ? "/index.html" : decoded
-    guard let fileName = publicFiles[path] else {
+    guard let resource = staticResources[path] else {
       send(
         status: 404,
         reason: "Not Found",
@@ -137,12 +188,12 @@ final class LoopbackServer {
     }
 
     do {
-      let data = try Data(contentsOf: root.appendingPathComponent(fileName))
+      let data = try data(for: resource)
       send(
         status: 200,
         reason: "OK",
         body: data,
-        contentType: mimeTypes[(fileName as NSString).pathExtension] ?? "application/octet-stream",
+        contentType: resource.contentType,
         extraHeaders: ["Cache-Control": "no-cache"],
         headOnly: method == "HEAD",
         on: connection
@@ -155,6 +206,24 @@ final class LoopbackServer {
         headOnly: method == "HEAD",
         on: connection
       )
+    }
+  }
+
+  private func data(for resource: StaticResource) throws -> Data {
+    switch resource {
+    case .file(let source, _):
+      return try Data(contentsOf: root.appendingPathComponent(source))
+    case .bundle(let kind, let sources, _):
+      let fragments = try sources.map {
+        try String(contentsOf: root.appendingPathComponent($0), encoding: .utf8)
+      }
+      let body = fragments.joined(separator: "\n")
+      switch kind {
+      case .script:
+        return Data((Self.scriptBundlePrefix + body + Self.scriptBundleSuffix).utf8)
+      case .style:
+        return Data((Self.styleBundlePrefix + body).utf8)
+      }
     }
   }
 
@@ -190,19 +259,82 @@ final class LoopbackServer {
       })
   }
 
-  private let publicFiles = [
-    "/index.html": "index.html",
-    "/style.css": "style.css",
-    "/bootstrap.js": "bootstrap.js",
-    "/markdown-it.min.js": "markdown-it.min.js",
-    "/app.js": "app.js",
-  ]
+  private static let scriptBundlePrefix = "/* 此文件由 static-manifest.json 按顺序组装；请编辑 web/app/ 下的职责片段。 */\n(function () {\n  'use strict';\n\n"
+  private static let scriptBundleSuffix = "\n})();\n"
+  private static let styleBundlePrefix = "/* 此文件由 static-manifest.json 按顺序组装；请编辑 web/styles/ 下的职责片段。 */\n"
 
-  private let mimeTypes = [
-    "html": "text/html; charset=utf-8",
-    "css": "text/css; charset=utf-8",
-    "js": "text/javascript; charset=utf-8",
-  ]
+  private static func loadStaticResources(from root: URL) throws -> [String: StaticResource] {
+    let manifestURL = root.appendingPathComponent("static-manifest.json")
+    let data: Data
+    do {
+      data = try Data(contentsOf: manifestURL)
+    } catch {
+      throw ServerError.invalidStaticManifest("无法读取 static-manifest.json")
+    }
+
+    let manifest: StaticManifest
+    do {
+      manifest = try JSONDecoder().decode(StaticManifest.self, from: data)
+    } catch {
+      throw ServerError.invalidStaticManifest("JSON 格式错误：\(error.localizedDescription)")
+    }
+
+    var resources: [String: StaticResource] = [:]
+    func add(_ route: String, _ resource: StaticResource) throws {
+      guard isSafeRoute(route) else {
+        throw ServerError.invalidStaticManifest("不安全的路由：\(route)")
+      }
+      guard resources[route] == nil else {
+        throw ServerError.invalidStaticManifest("重复路由：\(route)")
+      }
+      resources[route] = resource
+    }
+
+    for file in manifest.files {
+      guard isSafeSource(file.source), isContentType(file.contentType) else {
+        throw ServerError.invalidStaticManifest("无效文件条目：\(file.route)")
+      }
+      try ensureFileExists(root.appendingPathComponent(file.source), source: file.source)
+      try add(file.route, .file(source: file.source, contentType: file.contentType))
+    }
+
+    for bundle in manifest.bundles {
+      guard !bundle.sources.isEmpty, isContentType(bundle.contentType) else {
+        throw ServerError.invalidStaticManifest("无效 bundle：\(bundle.route)")
+      }
+      for source in bundle.sources {
+        guard isSafeSource(source) else {
+          throw ServerError.invalidStaticManifest("不安全的 bundle 片段：\(source)")
+        }
+        try ensureFileExists(root.appendingPathComponent(source), source: source)
+      }
+      try add(bundle.route, .bundle(kind: bundle.kind, sources: bundle.sources, contentType: bundle.contentType))
+    }
+    return resources
+  }
+
+  private static func ensureFileExists(_ url: URL, source: String) throws {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+      throw ServerError.invalidStaticManifest("资源不存在：\(source)")
+    }
+  }
+
+  private static func isSafeRoute(_ route: String) -> Bool {
+    guard route.hasPrefix("/"), route != "/", !route.contains("\\") else { return false }
+    return !route.split(separator: "/", omittingEmptySubsequences: false).contains("..")
+  }
+
+  private static func isSafeSource(_ source: String) -> Bool {
+    guard !source.isEmpty, !source.hasPrefix("/"), !source.contains("\\") else { return false }
+    return source.split(separator: "/", omittingEmptySubsequences: false).allSatisfy {
+      !$0.isEmpty && $0 != "." && $0 != ".."
+    }
+  }
+
+  private static func isContentType(_ contentType: String) -> Bool {
+    contentType.contains("/")
+  }
 
   private let securityHeaders = [
     "Content-Security-Policy": [

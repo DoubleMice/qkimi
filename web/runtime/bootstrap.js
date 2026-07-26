@@ -5,7 +5,8 @@
   window.__qkimiBootstrap = status;
 
   function runtimeFromBrowser() {
-    return fetch('/env.json', { cache: 'no-store' }).then(function (response) {
+    /* 透传 ?cwd= 等查询参数：serve.js 用它实现多窗口（新标签页绑定其他工作区）。 */
+    return fetch('/env.json' + window.location.search, { cache: 'no-store' }).then(function (response) {
       if (!response.ok) throw new Error('无法读取浏览器运行配置');
       return response.json();
     });

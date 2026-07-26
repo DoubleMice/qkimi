@@ -1,137 +1,10 @@
-import AppKit
+import Foundation
 import WebKit
 
+/// 原生 WebView 的端到端冒烟入口；与应用生命周期分离，避免 AppDelegate 持有大段注入脚本。
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-  private var runtime: KimiRuntime?
-  private var pageServer: LoopbackServer?
-  private var window: NSWindow?
-  private var bridge: NativeBridge?
-  private var webCoordinator: WebCoordinator?
-
-  func applicationDidFinishLaunching(_ notification: Notification) {
-    buildApplicationMenu()
-    do {
-      let runtime = try KimiRuntime()
-      self.runtime = runtime
-      runtime.ensureServer { [weak self] result in
-        switch result {
-        case .success:
-          self?.startPageServer(runtime: runtime)
-        case .failure(let error):
-          self?.failStartup(error)
-        }
-      }
-    } catch {
-      failStartup(error)
-    }
-  }
-
-  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-    true
-  }
-
-  func applicationWillTerminate(_ notification: Notification) {
-    pageServer?.stop()
-  }
-
-  func windowDidResize(_ notification: Notification) {
-    bridge?.publishWindowState()
-  }
-
-  private func startPageServer(runtime: KimiRuntime) {
-    do {
-      let root = try webResourceRoot()
-      let server = LoopbackServer(root: root)
-      pageServer = server
-      server.start { [weak self] result in
-        switch result {
-        case .success(let url):
-          self?.createWindow(runtime: runtime, appURL: url)
-        case .failure(let error):
-          self?.failStartup(error)
-        }
-      }
-    } catch {
-      failStartup(error)
-    }
-  }
-
-  private func createWindow(runtime: KimiRuntime, appURL: URL) {
-    let environment = ProcessInfo.processInfo.environment
-    let smokeMode = environment["QKIMI_SMOKE_RESULT"] != nil
-    let requestedWidth = Double(environment["QKIMI_SMOKE_WIDTH"] ?? "")
-    let requestedHeight = Double(environment["QKIMI_SMOKE_HEIGHT"] ?? "")
-    let initialWidth = requestedWidth ?? 1150
-    let initialHeight = requestedHeight ?? 830
-    let userContent = WKUserContentController()
-    let bridge = NativeBridge(runtime: runtime)
-    let bridgeScript = WKUserScript(
-      source: NativeBridge.injectedJavaScript,
-      injectionTime: .atDocumentStart,
-      forMainFrameOnly: true
-    )
-    userContent.addUserScript(bridgeScript)
-    userContent.addScriptMessageHandler(bridge, contentWorld: .page, name: "nativeBridge")
-
-    let configuration = WKWebViewConfiguration()
-    configuration.userContentController = userContent
-    configuration.websiteDataStore = .default()
-    configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-    configuration.mediaTypesRequiringUserActionForPlayback = .all
-
-    let webView = NativeWebView(frame: .zero, configuration: configuration)
-    webView.setValue(false, forKey: "drawsBackground")
-    webView.allowsMagnification = false
-    webView.allowsBackForwardNavigationGestures = false
-
-    let coordinator = WebCoordinator(appOrigin: appURL)
-    webView.navigationDelegate = coordinator
-    webView.uiDelegate = coordinator
-
-    let style: NSWindow.StyleMask = [
-      .titled, .closable, .miniaturizable, .resizable, .fullSizeContentView,
-    ]
-    let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
-      styleMask: style,
-      backing: .buffered,
-      defer: false
-    )
-    window.title = "Kimi 2007"
-    window.titleVisibility = .hidden
-    window.titlebarAppearsTransparent = true
-    window.backgroundColor = NSColor(
-      calibratedRed: 44 / 255, green: 90 / 255, blue: 140 / 255, alpha: 1)
-    window.minSize = smokeMode && requestedWidth != nil
-      ? NSSize(width: 320, height: 420)
-      : NSSize(width: 900, height: 650)
-    window.isReleasedWhenClosed = false
-    window.delegate = self
-    window.standardWindowButton(.closeButton)?.isHidden = true
-    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-    window.standardWindowButton(.zoomButton)?.isHidden = true
-    window.contentView = webView
-    window.center()
-
-    bridge.window = window
-    bridge.webView = webView
-    self.bridge = bridge
-    self.webCoordinator = coordinator
-    self.window = window
-
-    if let resultPath = ProcessInfo.processInfo.environment["QKIMI_SMOKE_RESULT"] {
-      coordinator.didFinishInitialLoad = { [weak self] loadedWebView in
-        self?.runSmokeTest(webView: loadedWebView, resultPath: resultPath)
-      }
-    }
-
-    window.makeKeyAndOrderFront(nil)
-    NSApplication.shared.activate(ignoringOtherApps: true)
-    webView.load(URLRequest(url: appURL))
-  }
-
-  private func runSmokeTest(webView: WKWebView, resultPath: String) {
+enum SmokeTestRunner {
+  static func run(webView: WKWebView, resultPath: String, finish: @escaping () -> Void) {
     let script = #"""
       const deadline = Date.now() + 12000;
       while (Date.now() < deadline && !document.querySelector('#connStatus')?.textContent.includes('已连接')) {
@@ -184,8 +57,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       document.querySelector('#panelClose')?.click();
       window.fetch = healthFetch;
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true, cancelable: true }));
+      const cmdkOpened = await waitFor(() => document.querySelector('#cmdk') && !document.querySelector('#cmdk').hidden);
+      const cmdkFocused = document.activeElement === document.querySelector('#cmdkInput');
+      const cmdkHasItems = document.querySelectorAll('#cmdkList .cmdk-item').length > 0;
+      const cmdkInputEl = document.querySelector('#cmdkInput');
+      if (cmdkInputEl) {
+        cmdkInputEl.value = '新建';
+        cmdkInputEl.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const cmdkFiltered = await waitFor(() => {
+        const items = document.querySelectorAll('#cmdkList .cmdk-item');
+        return items.length > 0 && Array.from(items).every((el) => el.textContent.includes('新建'));
+      });
+      document.querySelector('#cmdkInput')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      const cmdkClosed = await waitFor(() => document.querySelector('#cmdk')?.hidden === true);
       const keyboard = {
-        searchFocused: document.activeElement === document.querySelector('#sessSearch'),
+        commandPalette: cmdkOpened === true && cmdkFocused === true && cmdkHasItems === true &&
+          cmdkFiltered === true && cmdkClosed === true,
         sessionButtons: document.querySelectorAll('#sessList .sess-open').length,
         archiveButtons: document.querySelectorAll('#sessList .sess-del').length,
         workspaceButtons: 0,
@@ -197,7 +85,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       keyboard.workspaceSemantics = Array.from(document.querySelectorAll('#panelBody .p-ws')).every((item) =>
         item.tagName === 'BUTTON' && item.hasAttribute('aria-pressed')
       );
+      /* 多工作区：每个工作区行都有「新窗口打开」按钮（「全部工作区」行除外）。 */
+      const wsOpenButtons = document.querySelectorAll('#panelBody .p-ws-open').length;
       document.querySelector('#panelClose')?.click();
+      /* 多工作区：桥接 API 存在；会话列表可按工作区分组。 */
+      const wsGroupSel = document.querySelector('#sessGroupSel');
+      wsGroupSel.value = 'workspace';
+      wsGroupSel.dispatchEvent(new Event('change', { bubbles: true }));
+      const wsGroupRendered = await waitFor(() =>
+        document.querySelectorAll('#sessList .sess-group .sess-ws-chip').length > 0);
+      wsGroupSel.value = 'time';
+      wsGroupSel.dispatchEvent(new Event('change', { bubbles: true }));
+      const multiWorkspace = {
+        bridgeApi: typeof window.KimiDesktop.openWorkspaceWindow === 'function',
+        openButtons: wsOpenButtons,
+        groupRendered: wsGroupRendered === true
+      };
+      /* / 命令与 @ 文件补全：打开→过滤→键盘导航→Esc 关闭全路径 */
+      const compInput = document.querySelector('#input');
+      const compPop = document.querySelector('#completePop');
+      const compSetValue = (v) => {
+        compInput.value = v;
+        compInput.setSelectionRange(v.length, v.length);
+        compInput.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      compInput.focus();
+      compSetValue('/');
+      const compSlashOpened = await waitFor(() =>
+        compPop?.classList.contains('show') && compPop.querySelectorAll('.cmdk-item').length > 0);
+      const compSlashFullCount = compPop?.querySelectorAll('.cmdk-item').length || 0;
+      const compSlashTitles = Array.from(compPop?.querySelectorAll('.cmdk-item-title') || [])
+        .map((el) => el.textContent);
+      const compSlashHasServerCmds = ['/compact', '/undo', '/fork'].every((t) => compSlashTitles.includes(t));
+      compSetValue('/mo');
+      const compSlashFiltered = await waitFor(() => {
+        const items = compPop?.querySelectorAll('.cmdk-item') || [];
+        return items.length > 0 && items.length < compSlashFullCount &&
+          Array.from(items).some((el) => el.textContent.includes('/model'));
+      });
+      compInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      const compNav = await waitFor(() =>
+        compPop?.querySelectorAll('.cmdk-item.cmdk-active').length === 1);
+      compInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      const compSlashClosed = await waitFor(() => !compPop?.classList.contains('show'));
+      const compMentionSkipped = !window.__kimi2007?.sid;
+      let compMentionLoaded = true;
+      let compMentionClosed = true;
+      if (!compMentionSkipped) {
+        compSetValue('@');
+        compMentionLoaded = await waitFor(() => compPop?.querySelectorAll('.cmdk-item').length > 0, 9000);
+        compInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        compMentionClosed = await waitFor(() => !compPop?.classList.contains('show'));
+      }
+      compSetValue('');
+      const completion = {
+        slashOpened: compSlashOpened === true,
+        slashFiltered: compSlashFiltered === true,
+        slashHasServerCmds: compSlashHasServerCmds === true,
+        keyboardNav: compNav === true,
+        slashClosed: compSlashClosed === true,
+        mentionSkipped: compMentionSkipped,
+        mentionLoaded: compMentionSkipped ? true : compMentionLoaded === true,
+        mentionClosed: compMentionSkipped ? true : compMentionClosed === true
+      };
       const activityCenter = {
         present: Boolean(document.querySelector('#activityPanel')),
         state: document.querySelector('#activityState')?.textContent,
@@ -230,6 +180,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
           !document.querySelector('.side-right')?.classList.contains('mobile-open');
       }
       var orphanCleanup = { supported: false, passed: false };
+      /* 代码宠物：插画资源、画布分辨率、限时回退、摸头成长、养成数值与旁侧互动按钮 */
+      const petAreaEl = document.querySelector('#petArea');
+      const petCanvasEl = document.querySelector('#petCanvas');
+      const petHook = window.__kimi2007?.pet;
+      const pet = {
+        areaPresent: Boolean(petAreaEl),
+        canvasPresent: Boolean(petCanvasEl),
+        canvasDpr: Boolean(petCanvasEl) && petCanvasEl.width >= 48 && petCanvasEl.height >= 56,
+        hookPresent: Boolean(petHook),
+        spriteLoaded: false,
+        modeSet: false,
+        revertToIdle: false,
+        expIsNumber: false,
+        patReacted: false,
+        statsIsObj: false,
+        feedRaised: false,
+        actionsPresent: false,
+        actionWorks: false,
+        actionValueSynced: false,
+        rightClickSuppressed: false
+      };
+      if (petHook) {
+        pet.spriteLoaded = await waitFor(() => petHook.spriteLoaded === true, 2000);
+        petHook.set('happy');
+        pet.modeSet = petHook.mode === 'happy';
+        petHook.setDuration({ happy: 50 });
+        petHook.set('happy');
+        pet.revertToIdle = await waitFor(() => petHook.mode === 'idle', 2000);
+        pet.expIsNumber = typeof petHook.exp === 'number';
+        /* 养成数值：三值可读、喂食能恢复饥饿 */
+        const st = petHook.stats;
+        pet.statsIsObj = Boolean(st) && typeof st.hunger === 'number' &&
+          typeof st.clean === 'number' && typeof st.mood === 'number';
+        if (pet.statsIsObj && petHook.setStats && petHook.feed) {
+          petHook.setStats({ hunger: 50 });
+          const hungerBefore = petHook.stats.hunger;
+          petHook.feed();
+          pet.feedRaised = petHook.stats.hunger > hungerBefore;
+          petHook.set('idle');
+        }
+        if (petAreaEl) {
+          const expBefore = petHook.exp;
+          const petRect = petAreaEl.getBoundingClientRect();
+          const petX = petRect.left + petRect.width / 2;
+          const petY = petRect.top + petRect.height / 2;
+          petAreaEl.dispatchEvent(new PointerEvent('pointerdown', { clientX: petX, clientY: petY, bubbles: true, pointerId: 1 }));
+          petAreaEl.dispatchEvent(new PointerEvent('pointerup', { clientX: petX, clientY: petY, bubbles: true, pointerId: 1 }));
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          pet.patReacted = petHook.exp > expBefore ||
+            document.querySelector('#petBubble')?.classList.contains('on') === true;
+          /* 互动按钮常驻在宠物左侧；右键不会再打开菜单。 */
+          pet.actionsPresent = document.querySelector('#petActions') !== null &&
+            document.querySelectorAll('#petActions .pet-action').length === 4;
+          const feedButton = document.querySelector('#petActionFeed');
+          if (pet.actionsPresent && feedButton && petHook.setStats) {
+            petHook.setStats({ hunger: 50 });
+            const hungerBeforeAction = petHook.stats.hunger;
+            feedButton.click();
+            pet.actionWorks = petHook.stats.hunger > hungerBeforeAction;
+            pet.actionValueSynced = document.querySelector('#petActionFeedValue')?.textContent ===
+              String(Math.round(petHook.stats.hunger));
+            petHook.set('idle');
+          }
+          const rightClick = new MouseEvent('contextmenu', { clientX: petX, clientY: petY, bubbles: true, cancelable: true });
+          petAreaEl.dispatchEvent(rightClick);
+          pet.rightClickSuppressed = rightClick.defaultPrevented === true && document.querySelector('#petMenu') === null;
+        }
+      }
       let delayedUploadFetch = null;
       try {
         delayedUploadFetch = window.fetch.bind(window);
@@ -619,6 +637,102 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
       })().catch((e) => ({ error: String(e) }));
 
+      const tagFavTest = await (async function () {
+        /* 会话标签与收藏回归：标签写入/读取 + 分组渲染；收藏增删、计数、笔记与面板。 */
+        const uiState = window.__kimi2007;
+        const result = {
+          sessionTags: { writeRead: false, groupRendered: false },
+          favorites: {
+            addRemove: false, countSynced: false, panelOpened: false,
+            controlsVisible: false, noOverflow: false, noteSaved: false
+          }
+        };
+        try {
+          if (uiState.sessions && uiState.sessions.length) {
+            document.querySelector('#sessList .sess-item .sess-tagbtn')?.click();
+            const tagPanelOpened = await waitFor(() =>
+              !document.querySelector('#panel')?.hidden &&
+              document.querySelectorAll('#panelBody .tag-opt input').length >= 4);
+            const workBox = Array.from(document.querySelectorAll('#panelBody .tag-opt input'))
+              .find((box) => box.value === '工作');
+            if (workBox) workBox.checked = true;
+            document.querySelector('#panelBody #tagSave')?.click();
+            await waitFor(() => document.querySelector('#panel')?.hidden);
+            let storedTags = {};
+            try { storedTags = JSON.parse(localStorage.getItem('kimi2007.sessionTags.v1') || '{}'); } catch (_) {}
+            const taggedSid = Object.keys(storedTags).find((sid) => (storedTags[sid] || []).includes('工作'));
+            result.sessionTags.writeRead = tagPanelOpened && Boolean(taggedSid) &&
+              (uiState.sessionTags[taggedSid] || []).includes('工作');
+            const sel = document.querySelector('#sessGroupSel');
+            sel.value = 'tag';
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            result.sessionTags.groupRendered = await waitFor(() =>
+              Array.from(document.querySelectorAll('#sessList .sess-group .tag-chip'))
+                .some((chip) => chip.textContent.includes('工作')));
+            sel.value = 'time';
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          const favAct = document.querySelector('#chatBody .msg-actions .msg-act[title="收藏此消息到知识库"]');
+          const storedFavCount = () => {
+            try { return JSON.parse(localStorage.getItem('kimi2007.favorites.v1') || '[]').length; }
+            catch (_) { return -1; }
+          };
+          if (favAct) {
+            favAct.click();
+            const added = await waitFor(() => storedFavCount() > 0);
+            const starred = favAct.textContent.includes('已收藏');
+            const countSynced = await waitFor(() => {
+              const badge = document.querySelector('#favCount');
+              return badge?.textContent === '1' && badge?.hidden === false;
+            });
+            favAct.click();
+            const removed = await waitFor(() => storedFavCount() === 0);
+            favAct.click();
+            await waitFor(() => storedFavCount() > 0);
+            result.favorites.addRemove = added && starred && removed;
+            result.favorites.countSynced = countSynced;
+            document.querySelector('#favBtn')?.click();
+            result.favorites.panelOpened = await waitFor(() =>
+              !document.querySelector('#panel')?.hidden &&
+              document.querySelectorAll('#panelBody .fav-card').length > 0);
+            result.favorites.controlsVisible = document.querySelector('#panelBody .fav-workspace') != null &&
+              document.querySelector('#panelBody .fav-sort') != null &&
+              document.querySelector('#panelBody .fav-overview-meta') != null;
+            const favPanel = document.querySelector('#panel');
+            result.favorites.noOverflow = Boolean(favPanel && favPanel.scrollWidth <= favPanel.clientWidth);
+            document.querySelector('#panelBody .fav-note-btn')?.click();
+            const noteEditorOpened = await waitFor(() => document.querySelector('#panelBody .fav-note-editor') != null);
+            const noteEditor = document.querySelector('#panelBody .fav-note-editor');
+            if (noteEditor) noteEditor.value = 'smoke 收藏笔记';
+            document.querySelector('#panelBody .fav-note-save')?.click();
+            result.favorites.noteSaved = noteEditorOpened && await waitFor(() => {
+              try {
+                return JSON.parse(localStorage.getItem('kimi2007.favorites.v1') || '[]')
+                  .some((fav) => fav.note === 'smoke 收藏笔记');
+              } catch (_) {
+                return false;
+              }
+            });
+            document.querySelector('#panelClose')?.click();
+            await waitFor(() => document.querySelector('#panel')?.hidden);
+          }
+        } catch (error) {
+          result.error = String(error);
+        } finally {
+          /* 清理 smoke 写入的本地数据，避免污染真实会话列表。 */
+          try {
+            localStorage.removeItem('kimi2007.sessionTags.v1');
+            localStorage.removeItem('kimi2007.favorites.v1');
+            localStorage.removeItem('kimi2007.sessgroup');
+          } catch (_) {}
+          uiState.sessionTags = {};
+          uiState.favorites = [];
+          uiState.sessGroup = 'time';
+          uiState.tagFilter = null;
+        }
+        return result;
+      })().catch((e) => ({ error: String(e) }));
+
       const bounds = document.querySelector('#window')?.getBoundingClientRect();
       return {
         bootstrap: window.__qkimiBootstrap?.phase,
@@ -636,11 +750,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         fullLockPermission: fullLockPermissionTest,
         layoutSwitch: layoutTest,
         messageOrder: messageOrder,
+        sessionTags: tagFavTest.sessionTags,
+        favorites: tagFavTest.favorites,
         modelMenu: modelMenu,
         toolsPanel: toolsPanel,
         keyboard: keyboard,
+        multiWorkspace: multiWorkspace,
+        completion: completion,
         activityCenter: activityCenter,
         narrowLayout: narrowLayout,
+        pet: pet,
         fillsViewport: Boolean(bounds) && bounds.x === 0 && bounds.y === 0 && bounds.width === innerWidth && bounds.height === innerHeight,
         overflow: document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight
       };
@@ -656,8 +775,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       ],
       in: nil,
       in: .page
-    ) {
-      [weak self] result in
+    ) { result in
       let output: [String: Any]
       switch result {
       case .success(let value):
@@ -672,80 +790,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       } catch {
         fputs("[kimi-2007] smoke result write failed: \(error)\n", stderr)
       }
-      self?.window?.close()
-      NSApplication.shared.terminate(nil)
+      finish()
     }
-  }
-
-  private func webResourceRoot() throws -> URL {
-    let environment = ProcessInfo.processInfo.environment
-    if let configured = environment["QKIMI_RESOURCE_ROOT"] {
-      return URL(fileURLWithPath: configured, isDirectory: true)
-    }
-    if let bundled = Bundle.main.resourceURL?.appendingPathComponent("Web", isDirectory: true),
-      FileManager.default.fileExists(atPath: bundled.appendingPathComponent("index.html").path)
-    {
-      return bundled
-    }
-    let current = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-    if FileManager.default.fileExists(atPath: current.appendingPathComponent("index.html").path) {
-      return current
-    }
-    throw NSError(
-      domain: "com.qkimi.desktop",
-      code: 1,
-      userInfo: [NSLocalizedDescriptionKey: "找不到客户端网页资源"]
-    )
-  }
-
-  private func failStartup(_ error: Error) {
-    let alert = NSAlert()
-    alert.alertStyle = .critical
-    alert.messageText = "Kimi 2007 启动失败"
-    alert.informativeText = error.localizedDescription
-    alert.addButton(withTitle: "退出")
-    alert.runModal()
-    NSApplication.shared.terminate(nil)
-  }
-
-  private func buildApplicationMenu() {
-    let mainMenu = NSMenu()
-
-    let appItem = NSMenuItem()
-    mainMenu.addItem(appItem)
-    let appMenu = NSMenu()
-    appMenu.addItem(
-      withTitle: "关于 Kimi 2007", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
-      keyEquivalent: "")
-    appMenu.addItem(.separator())
-    appMenu.addItem(
-      withTitle: "隐藏 Kimi 2007", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-    appMenu.addItem(.separator())
-    appMenu.addItem(
-      withTitle: "退出 Kimi 2007", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-    appItem.submenu = appMenu
-
-    let editItem = NSMenuItem()
-    mainMenu.addItem(editItem)
-    let editMenu = NSMenu(title: "编辑")
-    editMenu.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
-    editMenu.addItem(withTitle: "重做", action: Selector(("redo:")), keyEquivalent: "Z")
-    editMenu.addItem(.separator())
-    editMenu.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-    editMenu.addItem(withTitle: "复制", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-    editMenu.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-    editMenu.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-    editItem.submenu = editMenu
-
-    let windowItem = NSMenuItem()
-    mainMenu.addItem(windowItem)
-    let windowMenu = NSMenu(title: "窗口")
-    windowMenu.addItem(
-      withTitle: "最小化", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
-    windowMenu.addItem(withTitle: "缩放", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
-    windowItem.submenu = windowMenu
-    NSApplication.shared.windowsMenu = windowMenu
-
-    NSApplication.shared.mainMenu = mainMenu
   }
 }

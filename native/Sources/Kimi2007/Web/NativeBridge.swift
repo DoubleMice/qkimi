@@ -4,19 +4,26 @@ import WebKit
 @MainActor
 final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
   private let runtime: KimiRuntime
+  private let store: WorkspaceStore
   weak var window: NSWindow?
   weak var webView: WKWebView?
 
-  init(runtime: KimiRuntime) {
+  /// 工作区经「选择目录」变更后回调（窗口标题等需要刷新）。
+  var onWorkspaceChanged: (() -> Void)?
+  /// 前端请求在新窗口打开某个工作区。
+  var onOpenWorkspaceWindow: ((String) -> Void)?
+
+  init(runtime: KimiRuntime, store: WorkspaceStore) {
     self.runtime = runtime
+    self.store = store
   }
 
   static let injectedJavaScript = #"""
     (function () {
       'use strict';
       var stateListeners = [];
-      function invoke(action) {
-        return window.webkit.messageHandlers.nativeBridge.postMessage({ action: action });
+      function invoke(action, params) {
+        return window.webkit.messageHandlers.nativeBridge.postMessage({ action: action, params: params || {} });
       }
       function markDesktop() {
         if (!document.documentElement) return;
@@ -33,6 +40,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         platform: 'darwin',
         getRuntimeEnv: function () { return invoke('runtime'); },
         chooseWorkspace: function () { return invoke('chooseWorkspace'); },
+        openWorkspaceWindow: function (cwd) { return invoke('openWorkspaceWindow', { cwd: cwd }); },
         minimize: function () { invoke('minimize').catch(function () {}); },
         toggleMaximize: function () { invoke('toggleMaximize').catch(function () {}); },
         close: function () { invoke('close').catch(function () {}); },
@@ -58,16 +66,19 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
       replyHandler(nil, "无效的客户端请求")
       return
     }
+    let params = body["params"] as? [String: Any] ?? [:]
 
     switch action {
     case "runtime":
       do {
-        replyHandler(try runtime.environmentDictionary(), nil)
+        replyHandler(try runtime.environmentDictionary(workspace: store.workspace), nil)
       } catch {
         replyHandler(nil, error.localizedDescription)
       }
     case "chooseWorkspace":
       chooseWorkspace(replyHandler: replyHandler)
+    case "openWorkspaceWindow":
+      openWorkspaceWindow(params: params, replyHandler: replyHandler)
     case "minimize":
       replyHandler(nil, nil)
       window?.miniaturize(nil)
@@ -106,7 +117,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     let panel = NSOpenPanel()
     panel.title = "选择 Kimi 工作区"
     panel.prompt = "选择工作区"
-    panel.directoryURL = URL(fileURLWithPath: runtime.workspace)
+    panel.directoryURL = URL(fileURLWithPath: store.workspace)
     panel.canChooseFiles = false
     panel.canChooseDirectories = true
     panel.canCreateDirectories = true
@@ -117,11 +128,28 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         return
       }
       guard response == .OK, let selected = panel.url else {
-        replyHandler(["canceled": true, "cwd": self.runtime.workspace], nil)
+        replyHandler(["canceled": true, "cwd": self.store.workspace], nil)
         return
       }
-      self.runtime.setWorkspace(selected.path)
-      replyHandler(["canceled": false, "cwd": self.runtime.workspace], nil)
+      self.store.setWorkspace(selected.path)
+      self.onWorkspaceChanged?()
+      replyHandler(["canceled": false, "cwd": self.store.workspace], nil)
     }
+  }
+
+  private func openWorkspaceWindow(
+    params: [String: Any], replyHandler: @escaping (Any?, String?) -> Void
+  ) {
+    let requested = (params["cwd"] as? String) ?? store.workspace
+    guard WorkspaceStore.isDirectory(requested) else {
+      replyHandler(nil, "工作区目录不存在：\(requested)")
+      return
+    }
+    guard let onOpenWorkspaceWindow else {
+      replyHandler(nil, "客户端暂不支持多窗口")
+      return
+    }
+    replyHandler(["ok": true], nil)
+    onOpenWorkspaceWindow(requested)
   }
 }

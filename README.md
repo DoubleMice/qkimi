@@ -26,6 +26,12 @@ Kimi 2007 是一个复古 QQ 2007 风格的 Kimi Code macOS 客户端。它使�
 
 客户端启动时会检查本机 `kimi server`。如果服务未运行，客户端会尝试执行 `kimi server run --keep-alive`。默认服务地址为 `http://127.0.0.1:58627`，可以通过 `KIMI_SERVER_PORT` 或 `KIMI_SERVER_BASE` 修改；令牌文件默认位于 `~/.kimi-code/server.token`，可以通过 `KIMI_SERVER_TOKEN_FILE` 修改。
 
+## 多工作区
+
+- 每个窗口绑定一个工作区。「文件」菜单的「新建窗口」（⌘N）和「新窗口打开工作区…」（⌘⇧N）可同时开多个窗口并行工作；左栏「工作区」面板每行的 ↗ 按钮也能把工作区开到新窗口。重启后自动恢复上次打开的窗口集合。
+- 单窗口内也能纵览所有工作区：会话列表分组方式选「按工作区」，会话按工作区分节展示，点击分节头可切换到只看该工作区；工作区面板选择「全部工作区」时，会话条目会标注所属工作区。
+- 浏览器兼容模式下，「新窗口打开」通过 `?cwd=<目录>` 新标签页实现（目录需真实存在）。
+
 ## 开发运行
 
 启动 macOS 原生客户端：
@@ -46,12 +52,12 @@ bash native/build.sh run
 npm run start:web
 ```
 
-默认访问地址为 `http://127.0.0.1:2007`。浏览器模式使用 `serve.js` 提供页面，并通过 `/env.json` 注入本机服务配置；原生客户端不提供这个 HTTP 接口，而是通过 WKWebView 原生桥接传递配置。
+默认访问地址为 `http://127.0.0.1:2007`。浏览器模式使用 `tools/serve.js` 提供页面，并通过 `/env.json` 注入本机服务配置；原生客户端不提供这个 HTTP 接口，而是通过 WKWebView 原生桥接传递配置。
 
 ## 检查与打包
 
 ```bash
-# JavaScript 语法检查和 Swift debug 编译
+# 前端资源清单/组合后的 JavaScript 检查和 Swift debug 编译
 npm run check
 
 # 原生 WKWebView smoke test
@@ -78,13 +84,14 @@ swift package --package-path native clean
 
 ## 客户端结构
 
-- `native/Sources/Kimi2007/`：原生窗口、Kimi 服务检测、工作区持久化、WKWebView 桥接和本地页面服务。
-- `index.html`、`style.css`、`bootstrap.js`、`app.js`、`markdown-it.min.js`：原生客户端与浏览器模式共用的前端文件。
-- `serve.js`：浏览器兼容模式的本地 HTTP 服务和运行配置注入。
+- `native/Sources/Kimi2007/App/`：应用生命周期、多窗口、工作区持久化和冒烟测试；`Runtime/` 负责 Kimi 服务检测；`Web/` 负责 WKWebView 桥接和本地页面服务。
+- `web/app/`、`web/styles/`：按职责拆分的前端 JavaScript/CSS 源片段；`web/static-manifest.json` 定义仅可访问的静态路由及虚拟 `/app.js`、`/style.css` 的组合顺序；`runtime/`、`vendor/`、`assets/` 存放启动器、第三方库和图片。
+- `tools/serve.js`：浏览器兼容模式的本地 HTTP 服务和运行配置注入；`tools/web-assets.js` 负责校验并交付受控资源清单。
+- `docs/`：本地过程记录（`DESKTOP.md` 原生客户端说明、`todolist.md` 在途工作）。
 - `native/build.sh`：原生 `.app`、DMG 和 ZIP 的构建脚本。
 - `native/smoke.sh`：原生 WKWebView 端到端 smoke test，由 `npm test` 调用。
 
-原生客户端的页面服务只绑定本机回环地址，并且只提供白名单中的前端文件。工作区保存在 macOS `UserDefaults`，不会写入项目源码目录。原生客户端页面中的外部 HTTP(S) 链接交给系统浏览器打开，应用页面不能导航到其他来源。
+原生客户端的页面服务只绑定本机回环地址，并且只提供 `web/static-manifest.json` 白名单中的前端路由；源片段与清单自身不会直接暴露。工作区保存在 macOS `UserDefaults`，不会写入项目源码目录。原生客户端页面中的外部 HTTP(S) 链接交给系统浏览器打开，应用页面不能导航到其他来源。
 
 ## 发布说明
 

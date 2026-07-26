@@ -1,0 +1,316 @@
+/* ============================================================
+   Kimi 2007 —— 复古 QQ / Windows XP Luna 风格皮肤
+   ============================================================ */
+
+/* ---------- 设计变量：全皮肤统一的背景/边框/文本/语义/阴影基调 ---------- */
+:root {
+  /* 背景 */
+  --bg-panel: #eaf1f9;   /* 面板/分区底（归并 #e9f1f9/#eaf2fa/#e6f0fa/#f4f9fe/#f5f9fd 等近似值） */
+  --bg-card: #edf2f9;    /* 条目/卡片底（归并 #ebf2f9/#eef4fb/#eef5fc/#eef3fa 等） */
+  --bg-hover: #d8e8f8;   /* 悬停（主导值，归并另外 5 种 hover 蓝） */
+  --bg-active: #c7def6;  /* 选中/按下（归并 #cfe2f6 等） */
+  --bg-pop: #fdfefe;     /* 弹层底 */
+  /* 边框 */
+  --border: #c6d6e8;     /* 常规边框（归并 #c2d4e6/#c9d9ea/#c8d8ea/#d4e1ee/#d5e2ef 等） */
+  --border-strong: #9dbede; /* 弹层/强调边框（归并 #aac6e2/#aec6de/#aac3dc 等） */
+  --border-window: #0b2f8b; /* 窗口级深蓝边框（含 #0a3f9b） */
+  /* 文本 */
+  --text: #26405e;
+  --text-strong: #1d3d66;
+  --text-dim: #5d7188;   /* 归并 #5d7692/#5c7188 */
+  --text-faint: #7a8aa0; /* 归并 #8a97a5/#98a4b2/#9aa8b8/#9aa4b0 等 */
+  /* 语义 */
+  --accent: #1a5fd4;
+  --danger: #b04a3a;
+  --warn: #8a5300;
+  --ok: #2e8b3d;
+  --focus: #4a7fc4;
+  --text-on-accent: #fff;
+  /* 阴影 */
+  --shadow-pop: 0 4px 14px rgba(20,60,120,.3);
+  --shadow-win: 0 12px 40px rgba(0,0,0,.45);
+  --shadow-soft: 0 3px 10px rgba(20,60,120,.25);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.sr-only {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: Tahoma, "SimSun", "宋体", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  color: #1f2d3d;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ---------- 桌面背景 ---------- */
+.desktop {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, #7ab5e8 0%, transparent 60%),
+    linear-gradient(180deg, #4a83b8 0%, #2c5a8c 55%, #1e4266 100%);
+}
+
+/* ---------- 主窗口外框 ---------- */
+.window {
+  position: relative;
+  width: 1150px;
+  height: 830px;
+  max-width: 97vw;
+  max-height: 96vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #4a80cf 0%, #3364b4 100%);
+  border: 1px solid var(--border-window);
+  border-radius: 9px 9px 7px 7px;
+  box-shadow:
+    var(--shadow-win),
+    inset 0 0 0 1px rgba(255, 255, 255, .22);
+  overflow: hidden;
+  transition: transform .28s ease, opacity .28s ease;
+}
+
+.window.closing {
+  transform: scale(.88) translateY(30px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.window.minimized {
+  transform: translateY(70vh) scale(.55);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.window.maximized {
+  position: fixed;
+  inset: 4px;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  z-index: 20;
+}
+
+/* ---------- 标题栏 ---------- */
+.titlebar {
+  height: 30px;
+  flex: 0 0 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 10px;
+  background: linear-gradient(180deg,
+    #6db1f8 0%, #3f8bf3 6%, #2274ea 14%,
+    #1163dd 40%, #0a53c4 62%, #0c56ca 88%, #2a70dc 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45);
+  cursor: default;
+}
+
+.title-icon {
+  width: 17px;
+  height: 17px;
+  margin-right: 6px;
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 40, .5));
+}
+
+.title-text {
+  flex: 1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: .3px;
+  text-shadow: 1px 1px 2px rgba(0, 20, 90, .9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tbtn {
+  position: relative;
+  width: 28px;
+  height: 21px;
+  border: 1px solid rgba(255, 255, 255, .65);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #8ab6f5 0%, #4c84e2 45%, #2f63c6 55%, #5587e0 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
+  cursor: pointer;
+}
+
+.tbtn:hover { filter: brightness(1.18); }
+.tbtn:active { filter: brightness(.92); }
+
+.tbtn.min::after {
+  content: "";
+  position: absolute;
+  left: 8px; bottom: 5px;
+  width: 9px; height: 3px;
+  background: #fff;
+  box-shadow: 0 0 2px rgba(0, 30, 90, .8);
+}
+
+.tbtn.max::after {
+  content: "";
+  position: absolute;
+  left: 8px; top: 5px;
+  width: 9px; height: 8px;
+  border: 2px solid #fff;
+  border-top-width: 3px;
+  box-shadow: 0 0 2px rgba(0, 30, 90, .8);
+}
+
+.tbtn.close {
+  margin-left: 3px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: bold;
+  line-height: 19px;
+  text-shadow: 0 1px 1px rgba(90, 10, 0, .8);
+  background: linear-gradient(180deg, #f5a98b 0%, #ec7a4d 40%, var(--danger) 60%, #e8683a 100%);
+}
+
+/* ---------- 主体 ---------- */
+.main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  margin: 0 2px;
+  border-left: 1px solid #8fb0d4;
+  border-right: 1px solid #8fb0d4;
+  background: var(--bg-panel);
+}
+
+/* ========== 左栏 ========== */
+.side-left {
+  width: 198px;
+  flex: 0 0 198px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-right: 1px solid #b3c8de;
+  /* 滚动策略见 v4 段：左栏本身不滚动(overflow:hidden)，只有会话列表滚动 */
+}
+
+.sl-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;            /* 三栏头部等高，底部分隔线贯通 */
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #ffffff, var(--bg-panel));
+}
+
+.sl-logo { font-size: 15px; }
+
+.sl-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--text-strong);
+}
+
+.sl-nav { padding: 4px 0; border-bottom: 1px solid var(--border); }
+
+.sl-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 12px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-item:hover { background: var(--bg-hover); }
+
+.sl-item.active {
+  background: var(--bg-active);
+  box-shadow: inset 1px 0 0 var(--border-strong), inset -1px 0 0 var(--border-strong);
+  font-weight: bold;
+}
+
+.sl-ico { font-size: 13px; width: 17px; text-align: center; }
+
+.sl-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px 3px;
+  font-size: 12px;
+  color: #4a6a8c;
+  font-weight: bold;
+}
+
+.sl-new {
+  padding: 2px 6px;
+  color: #2f5f91;
+  font: 11px/1.3 inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.sl-new:hover {
+  color: #174e87;
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.sl-search {
+  position: relative;
+  padding: 2px 9px 6px;
+}
+
+.sl-search input {
+  width: 100%;
+  padding: 4px 24px 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #333;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  outline: none;
+}
+
+.sl-search input:focus { border-color: #6fa5d8; }
+
+.sl-search-ico {
+  position: absolute;
+  right: 16px;
+  top: calc(50% - 2px);
+  transform: translateY(-50%);
+  font-size: 11px;
+  opacity: .6;
+  pointer-events: none;
+}

@@ -7,7 +7,7 @@ trap 'rm -f "$result_file"' EXIT
 
 swift build --package-path "$project_root/native" -c debug --arch arm64
 
-QKIMI_RESOURCE_ROOT="$project_root" \
+QKIMI_RESOURCE_ROOT="$project_root/web" \
 QKIMI_SMOKE_RESULT="$result_file" \
 QKIMI_SMOKE_PERMISSION="${QKIMI_SMOKE_PERMISSION:-1}" \
 QKIMI_SMOKE_UPLOAD="${QKIMI_SMOKE_UPLOAD:-0}" \
@@ -34,10 +34,21 @@ const checks = {
   layoutSwitch: value.layoutSwitch?.compactLocked === true && value.layoutSwitch?.restoredAuto === true,
   modelMenu: value.modelMenu?.loaded === true && value.modelMenu?.selectedCount === 1,
   toolsPanel: value.toolsPanel?.loaded === true && value.toolsPanel?.hasProviderStatus === true && value.toolsPanel?.failureVisible === true,
-  keyboardPaths: value.keyboard?.searchFocused === true &&
+  keyboardPaths: value.keyboard?.commandPalette === true &&
     Number(value.keyboard?.workspaceButtons || 0) > 0 && value.keyboard?.workspaceSemantics === true,
+  multiWorkspace: value.multiWorkspace?.bridgeApi === true && value.multiWorkspace?.groupRendered === true &&
+    Number(value.multiWorkspace?.openButtons || 0) === Math.max(0, Number(value.keyboard?.workspaceButtons || 0) - 1),
+  completion: value.completion?.slashOpened === true && value.completion?.slashFiltered === true &&
+    value.completion?.slashHasServerCmds === true &&
+    value.completion?.keyboardNav === true && value.completion?.slashClosed === true &&
+    value.completion?.mentionLoaded === true && value.completion?.mentionClosed === true,
   orphanCleanup: value.orphanCleanup?.supported === true && value.orphanCleanup?.passed === true,
   messageOrder: Object.values(value.messageOrder || {}).every(Boolean),
+  sessionTags: value.sessionTags?.writeRead === true && value.sessionTags?.groupRendered === true,
+  favorites: value.favorites?.addRemove === true && value.favorites?.countSynced === true &&
+    value.favorites?.panelOpened === true && value.favorites?.controlsVisible === true &&
+    value.favorites?.noOverflow === true &&
+    value.favorites?.noteSaved === true,
   viewport: value.fillsViewport === true && value.overflow === false,
   narrowLayout: value.narrowLayout?.enabled !== true || (
     value.narrowLayout?.sessionsDrawer === true &&
@@ -45,6 +56,14 @@ const checks = {
     value.narrowLayout?.drawersClosed === true &&
     value.narrowLayout?.scrollWidth === value.narrowLayout?.viewport?.[0]
   ),
+  pet: value.pet?.areaPresent === true && value.pet?.canvasPresent === true &&
+    value.pet?.canvasDpr === true && value.pet?.hookPresent === true &&
+    value.pet?.spriteLoaded === true &&
+    value.pet?.modeSet === true && value.pet?.revertToIdle === true &&
+    value.pet?.expIsNumber === true && value.pet?.patReacted === true &&
+    value.pet?.statsIsObj === true && value.pet?.feedRaised === true &&
+    value.pet?.actionsPresent === true && value.pet?.actionWorks === true &&
+    value.pet?.actionValueSynced === true && value.pet?.rightClickSuppressed === true,
 };
 const failures = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failures.length) {

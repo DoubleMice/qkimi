@@ -1,0 +1,437 @@
+/* ============================================================
+   v5 会话标签分组、消息收藏与知识库
+   ============================================================ */
+
+/* 左栏搜索框下方：分组方式选择 + 收藏入口。 */
+.sl-tools {
+  display: flex;
+  gap: 6px;
+  padding: 0 9px 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sl-group-sel {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  font: 11px/1.4 inherit;
+  color: #33506e;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+}
+
+.sl-group-sel:focus { border-color: #6fa5d8; }
+
+.sl-fav {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font: 11px/1.4 inherit;
+  color: #2f5f91;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.sl-fav:hover { color: #174e87; background: var(--bg-hover); }
+.sl-fav:active { background: var(--bg-active); }
+.sl-fav-star { color: var(--warn); font-size: 12px; line-height: 1; }
+.sl-fav-count {
+  min-width: 15px;
+  padding: 0 4px;
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1.45;
+  text-align: center;
+  background: var(--accent);
+  border-radius: 8px;
+}
+
+/* 分组头仿 .cmdk-group。 */
+.sess-group {
+  margin: 6px 6px 2px;
+  font-size: 10.5px;
+  font-weight: bold;
+  color: #4a6a8c;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* 标签 chip 仿 .p-badge，可点态用于筛选。 */
+.tag-chip {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: normal;
+  line-height: 1.6;
+  color: #4a6a8c;
+  background: #edf2f7;
+  border: 1px solid #d3dde7;
+  border-radius: 8px;
+}
+
+button.tag-chip { cursor: pointer; }
+button.tag-chip:hover { background: var(--bg-hover); }
+.tag-chip.on {
+  color: var(--text);
+  background: var(--bg-active);
+  border-color: #6f9dca;
+}
+
+/* 会话项内的标签展示：不抢占标题空间，超出省略。 */
+.sess-tags {
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: 2px;
+  overflow: hidden;
+}
+
+/* 「全部工作区」视图下会话项的工作区小标。 */
+.sess-ws {
+  flex: 0 1 auto;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+  font-size: 9.5px;
+  line-height: 1.6;
+  color: var(--text-faint);
+  background: #e8eef5;
+  border-radius: 3px;
+}
+
+/* 工作区分组头 chip 与标签 chip 同形，仅强调色略深。 */
+.sess-ws-chip { cursor: pointer; }
+
+/* 标签筛选态指示条。 */
+.sess-filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.sess-filter-clear {
+  padding: 0 3px;
+  color: var(--danger);
+  font: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.sess-filter-clear:hover { background: #f2d5d0; }
+
+/* 会话项 hover 区的 🏷 按钮，与 .sess-del 并列同规则。 */
+.sess-tagbtn {
+  display: block;
+  margin-right: 2px;
+  color: #4a6a8c;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.sess-tagbtn:not(:focus-visible) { visibility: hidden; }
+.sess-item:hover .sess-tagbtn,
+.sess-item:focus-within .sess-tagbtn { visibility: visible; }
+.sess-tagbtn:hover { background: var(--bg-hover); border-radius: 3px; }
+
+/* 标签编辑面板：预置标签复选列表。 */
+.tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 8px 0;
+}
+
+.tag-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.archive-tag-hint .tag-chip { margin-left: 4px; }
+.archive-tag-hint .p-dim { color: var(--text-faint); font-size: 11px; }
+
+/* 收藏知识库：将“查找—筛选—阅读—复用”压进一个稳定的小型工作台。 */
+.favorites-library { min-width: 0; }
+
+.fav-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.fav-overview-title { color: var(--text-strong); font-size: 13px; font-weight: bold; }
+.fav-overview-meta { margin-top: 1px; color: var(--text-dim); font-size: 11px; }
+.fav-overview .ap-btn { flex: 0 0 auto; margin: 0; }
+.fav-current.is-active { border-color: var(--focus); background: linear-gradient(180deg, var(--bg-active), var(--bg-hover)); }
+.fav-current:disabled,
+.fav-ops .ap-btn:disabled { cursor: default; opacity: .56; filter: none; }
+
+.fav-search-wrap,
+.fav-field {
+  display: grid;
+  gap: 3px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-weight: bold;
+}
+
+.fav-search-wrap { margin-top: 9px; }
+
+.fav-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  color: var(--text);
+  font: 13px/1.4 inherit;
+  font-weight: normal;
+  background: var(--bg-pop);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  outline: none;
+}
+
+.fav-search:focus-visible { box-shadow: 0 0 0 2px var(--focus); }
+
+.fav-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.fav-sess,
+.fav-workspace,
+.fav-sort {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 5px;
+  color: var(--text);
+  font: 11px/1.4 inherit;
+  font-weight: normal;
+  background: var(--bg-pop);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  outline: none;
+}
+
+.fav-sess:focus-visible,
+.fav-workspace:focus-visible,
+.fav-sort:focus-visible { box-shadow: 0 0 0 2px var(--focus); }
+
+.fav-tags-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-weight: bold;
+}
+
+.fav-tags {
+  display: inline-flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.fav-active-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 4px 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.fav-active-filters > span { min-width: 0; overflow-wrap: anywhere; }
+
+.fav-filter-clear,
+.fav-expand {
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.fav-filter-clear { flex: 0 0 auto; font-weight: bold; }
+.fav-filter-clear:hover,
+.fav-expand:hover { color: var(--text-strong); background: var(--bg-hover); }
+
+.fav-ops {
+  justify-content: flex-end;
+  gap: 0;
+  margin-top: 6px;
+}
+
+.fav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.fav-empty {
+  display: grid;
+  gap: 3px;
+}
+
+.fav-empty span { font-size: 11px; }
+
+/* 卡片承载可读摘录、来源和个人笔记；悬停只强化边界，避免密集列表跳动。 */
+.fav-card {
+  padding: 9px 10px;
+  background: var(--bg-pop);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.fav-card:hover {
+  background: var(--bg-card);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.fav-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.fav-card-head strong { flex: 0 0 auto; color: var(--text-strong); }
+.fav-card-session {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fav-card-time { flex: 0 0 auto; margin-left: auto; color: var(--text-faint); }
+.fav-other-workspace { color: var(--accent); background: var(--bg-active); border: 1px solid var(--border-strong); }
+
+.fav-card-source {
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fav-card-text {
+  margin: 6px 0 3px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.58;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.fav-expand { margin-bottom: 4px; font-size: 11px; }
+
+.fav-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.fav-card-tag { font: inherit; }
+
+.fav-note {
+  display: grid;
+  gap: 3px;
+  margin-top: 7px;
+  padding: 6px 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--bg-card);
+  border-left: 3px solid var(--border-strong);
+  border-radius: 3px;
+}
+
+.fav-note strong { color: var(--text-strong); }
+.fav-note-edit label { display: grid; gap: 3px; color: var(--text-dim); font-weight: bold; }
+.fav-note-editor {
+  min-height: 58px;
+  padding: 5px 7px;
+  color: var(--text);
+  font: 12px/1.45 inherit;
+  font-weight: normal;
+  resize: vertical;
+  background: var(--bg-pop);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  outline: none;
+}
+
+.fav-note-editor:focus-visible { box-shadow: 0 0 0 2px var(--focus); }
+.fav-note-edit .ap-btn { margin-bottom: 0; }
+
+.fav-card-ops {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0;
+  margin-top: 6px;
+}
+
+/* 跳转目标消息的高亮闪烁；reduced-motion 由现有媒体查询压平。 */
+@media (prefers-reduced-motion: no-preference) {
+  .msg-flash { animation: msgflash 1.6s ease-out; }
+  @keyframes msgflash {
+    0%, 40% { background: #fff3b0; }
+    100% { background: transparent; }
+  }
+}
+
+@media (max-width: 520px) {
+  .panel.favorites-panel {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 82vh;
+  }
+
+  .fav-overview { align-items: flex-start; }
+  .fav-overview .ap-btn { white-space: nowrap; }
+  .fav-filter-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .fav-field:last-child { grid-column: 1 / -1; }
+  .fav-active-filters { align-items: flex-start; }
+  .fav-card-time { width: 100%; margin-left: 0; }
+}

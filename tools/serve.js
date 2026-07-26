@@ -16,21 +16,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const { readStaticResource } = require('./web-assets');
 
 const UI_PORT = Number(process.env.QKIMI_UI_PORT) || 2007;
 const KIMI_PORT = Number(process.env.KIMI_SERVER_PORT) || 58627;
 const KIMI_BASE = process.env.KIMI_SERVER_BASE || `http://127.0.0.1:${KIMI_PORT}`;
 const TOKEN_FILE = process.env.KIMI_SERVER_TOKEN_FILE ||
   path.join(os.homedir(), '.kimi-code', 'server.token');
-const ROOT = __dirname;
-
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-};
-
-const PUBLIC_FILES = new Set(['/index.html', '/style.css', '/bootstrap.js', '/markdown-it.min.js', '/app.js']);
+// 前端静态文件位于 <项目根>/web；本脚本自身位于 <项目根>/tools。
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const WEB_ROOT = path.join(PROJECT_ROOT, 'web');
+const ROOT = WEB_ROOT;
 
 function readToken() {
   try {
@@ -146,7 +142,13 @@ function serveStatic(req, res, options) {
   if (urlPath === '/') urlPath = '/index.html';
 
   if (urlPath === '/env.json' && options.exposeEnv) {
-    const body = JSON.stringify(runtimeEnv(options.token, options.cwd));
+    /* 多窗口：?cwd=<目录> 让新标签页绑定其他工作区；非法路径静默回退默认。 */
+    let cwd = options.cwd;
+    try {
+      const requested = new URL(req.url, 'http://127.0.0.1').searchParams.get('cwd');
+      if (requested && fs.statSync(requested).isDirectory()) cwd = requested;
+    } catch { /* 忽略无效 cwd 参数 */ }
+    const body = JSON.stringify(runtimeEnv(options.token, cwd));
     res.writeHead(200, Object.assign({
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
@@ -155,26 +157,25 @@ function serveStatic(req, res, options) {
     return;
   }
 
-  if (!PUBLIC_FILES.has(urlPath)) {
+  let resource;
+  try {
+    resource = readStaticResource(options.root, urlPath);
+  } catch (error) {
+    console.error('[kimi-2007] 前端资源清单无效:', error.message);
+    res.writeHead(500, securityHeaders());
+    res.end('frontend manifest error');
+    return;
+  }
+  if (!resource) {
     res.writeHead(404, securityHeaders());
     res.end('not found');
     return;
   }
-
-  const filePath = path.join(options.root, urlPath.slice(1));
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      res.writeHead(404, securityHeaders());
-      res.end('not found');
-      return;
-    }
-    const ext = path.extname(filePath);
-    res.writeHead(200, Object.assign({
-      'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
-    }, securityHeaders()));
-    res.end(method === 'HEAD' ? undefined : data);
-  });
+  res.writeHead(200, Object.assign({
+    'Content-Type': resource.contentType,
+    'Cache-Control': 'no-cache',
+  }, securityHeaders()));
+  res.end(method === 'HEAD' ? undefined : resource.data);
 }
 
 function startUiServer(options = {}) {
@@ -182,7 +183,7 @@ function startUiServer(options = {}) {
     host: options.host || '127.0.0.1',
     port: options.port == null ? UI_PORT : options.port,
     token: options.token || readToken(),
-    cwd: options.cwd || ROOT,
+    cwd: options.cwd || PROJECT_ROOT,
     root: options.root || ROOT,
     exposeEnv: options.exposeEnv !== false,
   };
@@ -204,7 +205,7 @@ function startUiServer(options = {}) {
 
 async function startBrowserUi() {
   const token = await ensureKimiServer();
-  const ui = await startUiServer({ token, cwd: ROOT });
+  const ui = await startUiServer({ token, cwd: PROJECT_ROOT });
   console.log(`[kimi-2007] 浏览器界面已就绪: ${ui.url}`);
   return ui;
 }

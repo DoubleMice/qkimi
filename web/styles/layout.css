@@ -1,0 +1,383 @@
+/* ============================================================
+   v4 活动中心、会话可达性与窄屏抽屉
+   ============================================================ */
+
+/* 左栏本身不滚动；筛选控件固定在列表上方，只有会话列表滚动。 */
+.side-left { overflow: hidden; }
+.sess-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 3px 0 4px;
+}
+
+.sl-menu-btn {
+  padding: 1px 5px;
+  color: #5a789b;
+  font: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.sl-menu-btn:hover,
+.sl-menu-btn[aria-expanded="true"] { background: var(--bg-hover); border-color: var(--border-strong); }
+
+.model-opt {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font: inherit;
+  text-align: left;
+  color: #2c4a6c;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* 窄屏抽屉按钮：与 .chat-head-btn 对齐(透明底 + hover 浅蓝)，不再用白底。 */
+.chat-mobile-btn {
+  display: none;
+  width: 25px;
+  height: 22px;
+  padding: 0;
+  color: #33506e;
+  font: 15px/1 inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.chat-mobile-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+
+.ch-title { flex: 1; min-width: 0; }
+
+/* 会话项使用独立主操作和归档按钮，避免嵌套的可点击元素。
+   主规则单点定义：合并了 v2 段的基线样式(display/cursor/color 等)。 */
+.sess-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+}
+.sess-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  padding: 5px 5px 5px 10px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.sess-item:hover .sess-open { background: var(--bg-hover); }
+.sess-item.active .sess-open { background: var(--bg-active); }
+.sess-del {
+  display: block;
+  flex: 0 0 auto;
+  margin-right: 4px;
+  padding: 0 2px;
+  color: var(--danger);
+  font: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.sess-del:not(:focus-visible) { visibility: hidden; }
+.sess-item:hover .sess-del,
+.sess-item:focus-within .sess-del { visibility: visible; }
+.sess-pending {
+  flex: 0 0 auto;
+  min-width: 14px;
+  padding: 0 3px;
+  color: #7b4b05;
+  font-size: 10px;
+  font-weight: bold;
+  text-align: center;
+  background: #fff0c9;
+  border: 1px solid #eccb7b;
+  border-radius: 8px;
+}
+
+/* 弹出表情改为原生按钮后仍保持原来的 QQ 皮肤。
+   单点定义：合并了 v1 段的 .emoji-pop span 基线样式。 */
+.emoji-pop button,
+.emoji-pop span {
+  padding: 4px 5px;
+  color: #2c4a6c;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.emoji-pop button:hover,
+.emoji-pop span:hover { background: var(--bg-hover); }
+
+/* 右栏只承载可操作的真实活动，连接、上下文与权限保留在状态栏。
+   宽度单点定义(244px)：v1 段的 .side-right 只留共性样式。 */
+.side-right {
+  flex: 0 0 244px;
+  min-width: 0;
+  overflow: hidden;
+}
+.side-right.is-hidden { display: none; }
+.activity-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  color: #506b86;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+.activity-state { flex: 1; min-width: 0; font-size: 11px; }
+.activity-action {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  color: #7c2418;
+  font: 11px/1.3 inherit;
+  background: #fff4f1;
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.activity-action:hover { background: #f6d9d4; }
+.activity-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.activity-section { border-bottom: 1px solid var(--border); }
+.activity-section-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px 4px;
+  color: #4a6a8c;
+  font-size: 11px;
+  font-weight: bold;
+}
+.activity-count {
+  min-width: 15px;
+  padding: 0 4px;
+  color: #7b4b05;
+  font-size: 10px;
+  text-align: center;
+  background: #fff0c9;
+  border: 1px solid #eccb7b;
+  border-radius: 8px;
+}
+.activity-list { padding: 0 7px 7px; }
+.activity-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 6px;
+  margin-top: 5px;
+  padding: 6px 7px;
+  background: rgba(255, 255, 255, .84);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.activity-item-main { min-width: 0; }
+.activity-item-title {
+  overflow: hidden;
+  color: #294a6e;
+  font-size: 11px;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-item-detail {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #6c7f94;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-item-meta { grid-column: 1 / -1; color: var(--text-faint); font-size: 10px; }
+.activity-item-controls { display: flex; align-items: flex-start; gap: 4px; }
+.activity-status { align-self: start; padding: 1px 4px; font-size: 10px; border-radius: 8px; }
+.activity-status.running,
+.activity-status.connecting { color: #175f99; background: #ddecfa; border: 1px solid #a6c9ea; }
+.activity-status.completed,
+.activity-status.connected { color: #176b2a; background: #dff3e3; border: 1px solid #a8d6b1; }
+/* 错误徽标单点定义：.p-badge.error 与此处样式原本逐字重复，合并为一条。 */
+.activity-status.failed,
+.activity-status.error,
+.p-badge.error { color: var(--danger); background: #fff0ed; border: 1px solid #e0aaa0; }
+.activity-status.cancelled,
+.activity-status.disconnected,
+.activity-status.exited { color: #6c7f94; background: #edf2f7; border: 1px solid #d3dde7; }
+.activity-jump {
+  color: #255f98;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.activity-jump:hover { text-decoration: underline; }
+.activity-empty { margin: 10px; padding: 10px; color: var(--text-faint); text-align: center; background: #fff; border: 1px dashed var(--border); border-radius: 4px; }
+
+.mobile-backdrop { display: none; }
+
+/* 面板里的可选行使用原生 button 后保持原有布局。 */
+button.p-row {
+  width: 100%;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+.composer.drop-target { background: #e8f4ff; box-shadow: inset 0 0 0 2px #5d9ed8; }
+
+/* ============================================================
+   界面布局锁定：QQ 风格“尺寸模式”手动切换
+   data-layout-lock = auto | full | compact
+     full      —— 锁定三栏，即便物理窄屏也保持并排（沿用桌面默认样式）
+     compact   —— 强制抽屉形态（应用窄屏样式）
+     auto      —— 跟随 max-width:840px 响应式
+   data-layout 反映当前实际生效形态(full|compact)，便于辅助技术或测试断言。
+   ============================================================ */
+html[data-layout-lock="compact"] .window { width: 100vw; max-width: 100vw; }
+html[data-layout-lock="compact"] .main { position: relative; overflow: hidden; }
+html[data-layout-lock="compact"] .side-left,
+html[data-layout-lock="compact"] .side-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 55;
+  display: flex;
+  box-shadow: var(--shadow-pop);
+  transition: transform .2s ease;
+}
+html[data-layout-lock="compact"] .side-left {
+  left: 0;
+  width: min(272px, 86vw);
+  flex-basis: auto;
+  transform: translateX(-104%);
+}
+html[data-layout-lock="compact"] .side-right {
+  right: 0;
+  width: min(300px, 88vw);
+  flex-basis: auto;
+  transform: translateX(104%);
+}
+html[data-layout-lock="compact"] .side-left.mobile-open,
+html[data-layout-lock="compact"] .side-right.mobile-open { transform: translateX(0); }
+html[data-layout-lock="compact"] .side-right.is-hidden { display: none; }
+html[data-layout-lock="compact"] .chat-mobile-btn { display: inline-block; }
+html[data-layout-lock="compact"] .mobile-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: block;
+  background: rgba(8, 30, 70, .4);
+}
+html[data-layout-lock="compact"] .sr-reopen { display: none !important; }
+/* 紧凑形态下右下角是发送按钮区，悬浮宠物会遮挡，直接隐藏 */
+html[data-layout-lock="compact"] .pet-area { display: none; }
+
+/* full 锁定：在物理窄屏下强制恢复三栏并排，覆盖 max-width:840px 的抽屉样式。 */
+@media (max-width: 840px) {
+  html[data-layout-lock="full"] .window { width: 1150px; max-width: 97vw; }
+  html[data-layout-lock="full"] .main { position: static; overflow: visible; }
+  html[data-layout-lock="full"] .side-left,
+  html[data-layout-lock="full"] .side-right {
+    position: relative;
+    top: auto; bottom: auto; left: auto; right: auto;
+    z-index: auto;
+    transform: none;
+    box-shadow: none;
+  }
+  html[data-layout-lock="full"] .side-left { width: 174px; flex: 0 0 174px; }
+  html[data-layout-lock="full"] .side-right { width: 184px; flex: 0 0 184px; }
+  html[data-layout-lock="full"] .chat-mobile-btn { display: none; }
+  html[data-layout-lock="full"] .mobile-backdrop { display: none !important; }
+  html[data-layout-lock="full"] .sr-reopen { display: block; }
+}
+
+@media (max-width: 840px) {
+  .window { width: 100vw; max-width: 100vw; }
+  .main { position: relative; overflow: hidden; }
+  .side-left,
+  .side-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 55;
+    display: flex;
+    box-shadow: var(--shadow-pop);
+    transition: transform .2s ease;
+  }
+  .side-left {
+    left: 0;
+    width: min(272px, 86vw);
+    flex-basis: auto;
+    transform: translateX(-104%);
+  }
+  .side-right {
+    right: 0;
+    width: min(300px, 88vw);
+    flex-basis: auto;
+    transform: translateX(104%);
+  }
+  .side-left.mobile-open,
+  .side-right.mobile-open { transform: translateX(0); }
+  .side-right.is-hidden { display: none; }
+  .chat-mobile-btn { display: inline-block; }
+  .mobile-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    background: rgba(8, 30, 70, .4);
+  }
+  .sr-reopen { display: none !important; }
+  /* 窄屏右下角是发送按钮区，悬浮宠物会遮挡，直接隐藏(full 锁定时由下述规则恢复);
+     加 html 前缀提升优先级,覆盖文件后部的 .pet-area{display:flex} 基线规则 */
+  html .pet-area { display: none; }
+}
+
+@media (max-width: 840px) {
+  html[data-layout-lock="full"] .pet-area { display: flex; }
+}
+
+@media (max-width: 520px) {
+  .titlebar { padding-left: 6px; }
+  .title-text { font-size: 12px; }
+  .tbtn { width: 25px; }
+  .chat-body { padding: 10px 12px; }
+  .cp-tools { gap: 4px; padding-left: 7px; }
+  .cp-item { padding-left: 4px; padding-right: 4px; }
+  .cp-bottom { padding-left: 7px; padding-right: 7px; }
+  .cp-hint { display: none; }
+  .model-btn { max-width: 122px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .statusbar { justify-content: flex-end; padding: 0 5px; }
+  #stCopyCwd,
+  #ctxInfo { display: none; }
+  .st-right { gap: 4px; }
+  #connStatus,
+  .st-permission {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .model-menu,
+  .emoji-pop { max-width: calc(100vw - 16px); }
+}

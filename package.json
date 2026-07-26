@@ -7,8 +7,8 @@
   "scripts": {
     "start": "bash native/build.sh run",
     "start:native": "bash native/build.sh run",
-    "start:web": "node serve.js",
-    "check": "node --check app.js && node --check bootstrap.js && node --check serve.js && swift build --package-path native -c debug --arch arm64",
+    "start:web": "node tools/serve.js",
+    "check": "node tools/check-web.js && node --check tools/serve.js && swift build --package-path native -c debug --arch arm64",
     "test": "bash native/smoke.sh",
     "package": "bash native/build.sh package",
     "package:mac": "bash native/build.sh package",

@@ -56,12 +56,23 @@
           <span>会话</span>
           <button class="sl-new" id="navNew" type="button" title="新建会话">＋ 新建</button>
         </div>
-        <div class="sess-list" id="sessList" role="list"></div>
-
+        <!-- 筛选控件在列表之上：输入时结果向下变化，滚动列表时筛选状态始终可见 -->
         <div class="sl-search">
           <input type="search" id="sessSearch" placeholder="搜索会话..." aria-label="搜索会话">
           <span class="sl-search-ico">🔍</span>
         </div>
+        <div class="sl-tools">
+          <select id="sessGroupSel" class="sl-group-sel" aria-label="会话分组方式">
+            <option value="time">按时间</option>
+            <option value="tag">按标签</option>
+            <option value="date">按日期</option>
+            <option value="workspace">按工作区</option>
+          </select>
+          <button class="sl-fav" id="favBtn" type="button" title="打开收藏知识库" aria-label="打开收藏知识库">
+            <span class="sl-fav-star" aria-hidden="true">★</span><span>收藏</span><span class="sl-fav-count" id="favCount" hidden>0</span>
+          </button>
+        </div>
+        <div class="sess-list" id="sessList" role="list"></div>
       </aside>
 
       <!-- 中栏:聊天 -->
@@ -70,6 +81,8 @@
           <button class="chat-mobile-btn" id="sessionsToggle" type="button" title="显示会话列表" aria-label="显示会话列表" aria-controls="sessList" aria-expanded="false">☰</button>
           <span class="ch-ico">📄</span>
           <span class="ch-title" id="chatTitle">优化 KV 读写成本</span>
+          <span class="ch-ws" id="chatWs" hidden></span>
+          <button class="chat-head-btn" id="chatTagBtn" type="button" title="编辑当前会话标签" aria-label="编辑当前会话标签">🏷</button>
           <button class="chat-head-btn" id="exportMdBtn" type="button" title="导出会话为 Markdown" aria-label="导出会话为 Markdown">📤</button>
           <button class="chat-mobile-btn" id="activityToggle" type="button" title="显示活动中心" aria-label="显示活动中心" aria-controls="activityPanel" aria-expanded="false">☷</button>
         </div>
@@ -88,12 +101,11 @@
             <button class="cp-item" id="emojiBtn" type="button" aria-haspopup="true" aria-expanded="false">😊 表情</button>
             <button class="cp-item" id="imgBtn" type="button">🖼️ 图片</button>
             <button class="cp-item" id="attachBtn" type="button">📎 文件</button>
+            <button class="cp-font" id="fontBtn" type="button" title="聊天字号">A</button>
           </div>
           <textarea id="input" placeholder="输入消息" aria-label="给 Kimi 的消息"></textarea>
           <div class="cp-bottom">
-            <div class="cp-left">
-              <button class="cp-font" id="fontBtn" type="button" title="聊天字号">A</button>
-            </div>
+            <span class="cp-hint" id="sendHint"></span>
             <div class="cp-right">
               <button class="model-btn" id="modelBtn" type="button" aria-haspopup="menu" aria-expanded="false">⚡ <span id="modelName">k3</span> ▾</button>
               <div class="send-wrap">
@@ -114,6 +126,8 @@
           <div class="emoji-pop" id="emojiPop"></div>
           <!-- 模型菜单：运行时从本机 Kimi 服务读取 -->
           <div class="model-menu" id="modelMenu" role="menu" aria-label="当前会话模型"></div>
+          <!-- / 命令与 @ 文件补全菜单 -->
+          <div class="complete-pop" id="completePop" role="listbox" aria-label="补全建议"></div>
         </div>
       </main>
 
@@ -165,12 +179,48 @@
       </div>
       <div class="st-right">
         <button class="st-item st-action" id="connStatus" type="button" aria-live="polite">🔴 未连接</button>
-        <span class="st-item" id="ctxInfo" title="上下文用量">📊 -</span>
+        <button class="st-item st-action ctx-hp" id="ctxInfo" type="button" title="上下文用量">
+          <span class="ctx-hp-bar" id="ctxBar"></span>
+          <span class="ctx-hp-text" id="ctxBarText">📊 -</span>
+        </button>
         <button class="st-item st-action st-permission" id="permissionInfo" type="button" title="选择当前会话权限模式" aria-haspopup="dialog" aria-expanded="false">🛡️ - ▾</button>
         <button class="st-item st-action" id="bellToggle" type="button" title="消息提示音">🔔</button>
         <span class="st-item st-clock" id="clock">22:48</span>
       </div>
     </footer>
+
+    <!-- 活动中心收回后的展开条：必须在 .window 内，否则贴视口右缘会飘到窗口外 -->
+    <button class="sr-reopen" id="srReopen" type="button" hidden title="展开活动中心" aria-label="展开活动中心">«</button>
+
+    <!-- 代码宠物：互动按钮常驻在宠物左侧，full 布局下右栏底部预留（见 style.css .pet-area） -->
+    <div class="pet-area" id="petArea">
+      <div class="pet-actions" id="petActions" role="group" aria-label="宠物互动">
+        <button class="pet-action" id="petActionFeed" type="button" aria-label="喂食" title="喂食">
+          <span class="pet-action-icon" aria-hidden="true">🐟</span><span class="pet-action-label">喂食</span><b id="petActionFeedValue">100</b>
+        </button>
+        <button class="pet-action" id="petActionBath" type="button" aria-label="洗澡" title="洗澡">
+          <span class="pet-action-icon" aria-hidden="true">🛁</span><span class="pet-action-label">洗澡</span><b id="petActionBathValue">100</b>
+        </button>
+        <button class="pet-action" id="petActionPlay" type="button" aria-label="玩耍" title="玩耍">
+          <span class="pet-action-icon" aria-hidden="true">🧶</span><span class="pet-action-label">玩耍</span><b id="petActionPlayValue">100</b>
+        </button>
+        <button class="pet-action" id="petActionInfo" type="button" aria-label="宠物资料" aria-controls="petStats" aria-expanded="false" title="宠物资料">
+          <span class="pet-action-icon" aria-hidden="true">📋</span><span class="pet-action-label">资料</span>
+        </button>
+      </div>
+      <div class="pet-card" id="petCard">
+        <div class="pet-bubble" id="petBubble"></div>
+        <canvas class="pet-canvas" id="petCanvas" width="56" height="68" aria-label="小企鹅代码宠物" role="img"></canvas>
+        <!-- 悬浮数值卡：悬停宠物显示三条数值；「宠物资料」按钮可固定展开明细。 -->
+        <div class="pet-stats" id="petStats">
+          <div class="pet-stats-row pet-stats-lv"><span id="petStatsLv">Lv.1</span><div class="pet-bar exp"><i id="petStatsExpBar"></i></div></div>
+          <div class="pet-stats-row"><span>饥饿</span><div class="pet-bar hunger"><i id="petBarHunger"></i></div><b id="petNumHunger"></b></div>
+          <div class="pet-stats-row"><span>清洁</span><div class="pet-bar clean"><i id="petBarClean"></i></div><b id="petNumClean"></b></div>
+          <div class="pet-stats-row"><span>心情</span><div class="pet-bar mood"><i id="petBarMood"></i></div><b id="petNumMood"></b></div>
+          <div class="pet-stats-detail" id="petStatsDetail"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 通用面板(模型/工作区/Git/提醒) -->
@@ -183,11 +233,26 @@
     <div class="panel-body" id="panelBody"></div>
   </div>
 
+  <!-- 命令面板(⌘/Ctrl + K) -->
+  <div class="cmdk-backdrop" id="cmdkBackdrop" hidden></div>
+  <div class="cmdk" id="cmdk" role="dialog" aria-modal="true" aria-label="命令面板" hidden>
+    <div class="cmdk-search">
+      <span class="cmdk-search-ico" aria-hidden="true">⌘</span>
+      <input type="text" id="cmdkInput" class="cmdk-input" role="combobox" aria-expanded="true"
+        aria-controls="cmdkList" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+        placeholder="搜索命令、会话、模型…" aria-label="搜索命令、会话、模型">
+    </div>
+    <div class="cmdk-list" id="cmdkList" role="listbox" aria-label="命令结果"></div>
+    <div class="cmdk-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> 选择</span>
+      <span><kbd>↵</kbd> 执行</span>
+      <span><kbd>Esc</kbd> 关闭</span>
+    </div>
+  </div>
+
   <div class="mobile-backdrop" id="mobileBackdrop" hidden></div>
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite" aria-atomic="true"></div>
   <div class="sr-only" id="replyAnnouncer" role="status" aria-live="polite" aria-atomic="true"></div>
-  <!-- 活动中心收回后的展开条 -->
-  <button class="sr-reopen" id="srReopen" type="button" hidden title="展开活动中心" aria-label="展开活动中心">«</button>
 
   <!-- 退出遮罩 -->
   <div class="bye" id="bye">
@@ -199,7 +264,7 @@
   </div>
 </div>
 
-<script src="markdown-it.min.js"></script>
-<script src="bootstrap.js"></script>
+<script src="vendor/markdown-it.min.js"></script>
+<script src="runtime/bootstrap.js"></script>
 </body>
 </html>

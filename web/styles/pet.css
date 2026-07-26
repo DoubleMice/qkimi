@@ -1,0 +1,168 @@
+/* ========== 代码宠物：窗口右下角专属区域 ========== */
+/* full 布局下右栏底部为宠物预留专属区域。用 padding 而不是 margin：
+   margin 会让右栏提前结束，露出一块没有渐变背景的“空洞”。 */
+html[data-layout="full"] .side-right { padding-bottom: 200px; }
+/* 活动中心收起时右下角就是发送按钮组(实测坐标完全重叠)，与窄屏同理直接隐藏宠物。 */
+html[data-activity="hidden"] .pet-area { display: none; }
+.pet-area {
+  position: absolute;
+  right: 12px;
+  bottom: 34px;            /* 状态栏 26px + 外边距，位于右栏预留的专属区域内 */
+  z-index: 20;             /* 低于弹层(30)，高于消息/面板内容 */
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 224px;            /* 88px 操作列 + 间距 + 128px 宠物卡片，刚好收进 244px 右栏 */
+  height: 152px;
+  cursor: grab;
+  touch-action: none;      /* 拖拽需要：禁止浏览器接管触摸手势 */
+  user-select: none;
+}
+.pet-area.dragging { cursor: grabbing; }
+.pet-actions {
+  display: grid;
+  flex: 0 0 88px;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-pop);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+.pet-action {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 3px;
+  padding: 2px 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.pet-action:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.pet-action:active { background: var(--bg-active); }
+.pet-action-icon { flex: 0 0 auto; font-size: 12px; }
+.pet-action-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pet-action b { margin-left: auto; font-weight: normal; color: var(--text-dim); }
+.pet-card {
+  position: relative;
+  display: flex;
+  flex: 0 0 128px;
+  align-items: center;
+  justify-content: center;
+  width: 128px;            /* 画布 112 + 内边距：卡片刚好包住宠物 */
+  height: 152px;           /* 画布 136 + 内边距 */
+  padding: 8px;
+  background: linear-gradient(135deg, #f8fcff 0%, #eef6fc 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+.pet-canvas {
+  display: block;
+  width: 112px;            /* 56×68 逻辑坐标 ×2：尺寸刚好收进卡片 */
+  height: 136px;
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1);
+  will-change: transform;
+}
+/* 显隐改由 .on 类控制(原先依赖 hidden 属性)，配合 JS 做淡入淡出。 */
+.pet-bubble {
+  position: absolute;
+  bottom: calc(100% + 6px);   /* 悬浮卡片上方 */
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 140px;
+  padding: 3px 7px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #2c4a6c;
+  text-align: center;
+  background: #fffef5;
+  border: 1px solid #c8b898;
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .3s, visibility .3s;
+}
+.pet-bubble.on { opacity: 1; visibility: visible; }
+/* 悬停数值卡/pinned 资料卡展开时气泡上移，避免与卡片重叠 */
+.pet-card:hover .pet-bubble.on,
+.pet-card:has(.pet-stats.show) .pet-bubble.on { bottom: calc(100% + 96px); }
+.pet-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #fffef5;
+}
+
+/* 悬浮数值卡：悬停宠物显示；.show 时由旁侧「资料」按钮固定（点外部/Esc 关闭） */
+.pet-stats {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 132px;
+  padding: 6px 8px;
+  background: #fffef5;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  box-shadow: var(--shadow-pop);
+  font-size: 11px;
+  color: #2c4a6c;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s, visibility .2s;
+  z-index: 24;
+}
+.pet-card:hover .pet-stats,
+.pet-stats.show { opacity: 1; visibility: visible; }
+/* 拖拽换位时不悬停打扰；pinned 资料卡保持 */
+.pet-area.dragging .pet-stats:not(.show) { opacity: 0; visibility: hidden; }
+.pet-stats-row { display: flex; align-items: center; gap: 5px; margin: 2px 0; }
+.pet-stats-row > span { flex: none; width: 24px; color: var(--text-dim); }
+.pet-stats-row > b { flex: none; width: 20px; text-align: right; font-weight: normal; }
+.pet-stats-lv > span { width: auto; color: var(--accent); font-weight: bold; }
+.pet-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(90, 130, 180, .18);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.pet-bar > i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .3s; }
+.pet-bar.exp > i { background: var(--accent); }
+.pet-bar.hunger > i { background: #e08a2e; }
+.pet-bar.clean > i { background: var(--focus); }
+.pet-bar.mood > i { background: #e06a9a; }
+/* 数值偏低(<30)：条变红并缓慢闪烁提醒 */
+.pet-bar.low > i { background: var(--danger); animation: pet-stat-blink 1.2s infinite; }
+@keyframes pet-stat-blink { 50% { opacity: .45; } }
+.pet-stats-detail { display: none; margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border-strong); color: var(--text-dim); line-height: 1.7; }
+.pet-stats.show .pet-stats-detail { display: block; }
+
+/* 窄屏强制三栏时右栏仅 184px：操作列折成图标，仍与宠物同行且不压进聊天区。 */
+@media (max-width: 900px) {
+  .pet-area { right: 6px; gap: 4px; width: 174px; }
+  .pet-actions { flex-basis: 42px; gap: 3px; padding: 4px; }
+  .pet-action { justify-content: center; padding: 2px; }
+  .pet-action-label,
+  .pet-action b { display: none; }
+  .pet-action-icon { font-size: 13px; }
+}

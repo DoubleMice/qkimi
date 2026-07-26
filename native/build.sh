@@ -22,14 +22,13 @@ case "$target_root" in
 esac
 
 rm -rf "$target_root"
-mkdir -p "$app_root/Contents/MacOS" "$app_root/Contents/Resources/Web"
+mkdir -p "$app_root/Contents/MacOS" "$app_root/Contents/Resources"
 install -m 755 "$binary_source" "$app_root/Contents/MacOS/Kimi 2007"
 strip -x "$app_root/Contents/MacOS/Kimi 2007"
 install -m 644 "$native_root/Info.plist" "$app_root/Contents/Info.plist"
 install -m 644 "$project_root/assets/icon.icns" "$app_root/Contents/Resources/AppIcon.icns"
-for asset in index.html style.css bootstrap.js markdown-it.min.js app.js; do
-  install -m 644 "$project_root/$asset" "$app_root/Contents/Resources/Web/$asset"
-done
+# Web 资源按目录整体复制；LoopbackServer 仍只通过 static-manifest.json 暴露白名单路由。
+ditto "$project_root/web" "$app_root/Contents/Resources/Web"
 codesign --force --deep --sign - --identifier com.qkimi.desktop "$app_root" >/dev/null
 
 if [[ "$mode" == "run" ]]; then

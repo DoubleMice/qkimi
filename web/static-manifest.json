@@ -1,0 +1,71 @@
+{
+  "files": [
+    {
+      "route": "/index.html",
+      "source": "index.html",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "route": "/runtime/bootstrap.js",
+      "source": "runtime/bootstrap.js",
+      "contentType": "text/javascript; charset=utf-8"
+    },
+    {
+      "route": "/vendor/markdown-it.min.js",
+      "source": "vendor/markdown-it.min.js",
+      "contentType": "text/javascript; charset=utf-8"
+    },
+    {
+      "route": "/assets/pet-kimi.png",
+      "source": "assets/pet-kimi.png",
+      "contentType": "image/png"
+    }
+  ],
+  "bundles": [
+    {
+      "route": "/style.css",
+      "kind": "style",
+      "sources": [
+        "styles/base-shell.css",
+        "styles/chat-composer.css",
+        "styles/activity-interactions.css",
+        "styles/sessions-stream.css",
+        "styles/overlays.css",
+        "styles/layout.css",
+        "styles/pet.css",
+        "styles/knowledge.css"
+      ],
+      "contentType": "text/css; charset=utf-8"
+    },
+    {
+      "route": "/app.js",
+      "kind": "script",
+      "sources": [
+        "app/core.js",
+        "app/messages.js",
+        "app/message-actions.js",
+        "app/api.js",
+        "app/session-state.js",
+        "app/session-navigation.js",
+        "app/session-permissions.js",
+        "app/connection.js",
+        "app/live-presentation.js",
+        "app/activity-center.js",
+        "app/feedback.js",
+        "app/frame-handler.js",
+        "app/interactions.js",
+        "app/composer.js",
+        "app/window-interactions.js",
+        "app/completion.js",
+        "app/navigation.js",
+        "app/panels.js",
+        "app/attachments.js",
+        "app/layout.js",
+        "app/command-palette.js",
+        "app/pet.js",
+        "app/boot.js"
+      ],
+      "contentType": "text/javascript; charset=utf-8"
+    }
+  ]
+}

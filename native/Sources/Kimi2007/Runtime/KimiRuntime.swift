@@ -26,7 +26,6 @@ final class KimiRuntime {
   private let serverPort: Int
   private var initialToken: String?
   private var daemonProcess: Process?
-  private(set) var workspace: String
 
   init() throws {
     let environment = ProcessInfo.processInfo.environment
@@ -44,24 +43,9 @@ final class KimiRuntime {
       ?? FileManager.default.homeDirectoryForCurrentUser
       .appendingPathComponent(".kimi-code/server.token").path
     tokenFile = URL(fileURLWithPath: tokenPath)
-
-    let configured =
-      environment["QKIMI_WORKSPACE"] ?? UserDefaults.standard.string(forKey: "workspace")
-    if let configured, KimiRuntime.isDirectory(configured) {
-      workspace = URL(fileURLWithPath: configured).standardizedFileURL.path
-    } else {
-      workspace =
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        .first?.path ?? FileManager.default.homeDirectoryForCurrentUser.path
-    }
   }
 
-  func setWorkspace(_ path: String) {
-    workspace = URL(fileURLWithPath: path).standardizedFileURL.path
-    UserDefaults.standard.set(workspace, forKey: "workspace")
-  }
-
-  func environmentDictionary() throws -> [String: Any] {
+  func environmentDictionary(workspace: String) throws -> [String: Any] {
     guard let token = readToken() ?? initialToken, !token.isEmpty else {
       throw RuntimeError.missingToken
     }
@@ -178,11 +162,5 @@ final class KimiRuntime {
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     DispatchQueue.main.async { completion(result) }
-  }
-
-  private static func isDirectory(_ path: String) -> Bool {
-    var isDirectory: ObjCBool = false
-    return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
-      && isDirectory.boolValue
   }
 }
